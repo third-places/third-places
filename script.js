@@ -58,6 +58,12 @@ async function initIntro() {
 
 function nextIntroScreen() {
   const screens = document.querySelectorAll('.intro-screen');
+  
+  // Add this safety check
+  if (currentIntroScreen >= totalIntroScreens) {
+    return; // Already done, don't proceed
+  }
+  
   const currentScreen = screens[currentIntroScreen];
   
   // Exit animation for current screen
@@ -70,6 +76,7 @@ function nextIntroScreen() {
     
     if (currentIntroScreen >= totalIntroScreens) {
       // Done with intro, show main content
+      clearTimeout(introAutoAdvanceTimer); // Clear any pending timers
       document.getElementById('introContainer').classList.add('hidden');
       document.getElementById('mainContainer').style.display = 'flex';
       init(); // Initialize the voting app
