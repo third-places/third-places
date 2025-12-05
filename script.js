@@ -13,13 +13,13 @@ const API_KEY = '$2a$10$g1dt5Gx9rBAekKMLpAb2Qeu8EeOAjATgYXWCh/vfbR65ab45ZAUUy';
 
 // Location data
 const locations = [
-  { id: 'library', label: 'Library', icon: '📚' },
-  { id: 'cafe', label: 'Cafe', icon: '☕' },
-  { id: 'gym', label: 'Gym', icon: '💪' },
-  { id: 'religious', label: 'Religious\nSpace', icon: '🙏' },
-  { id: 'bar', label: 'Bar', icon: '🍷' },
-  { id: 'park', label: 'Park', icon: '🌳' },
-  { id: 'museum', label: 'Museum', icon: '🏛️' }
+  { id: 'library', label: 'Library', icon: 'bi-book-fill' },
+  { id: 'cafe', label: 'Cafe', icon: 'bi-cup-hot-fill' },
+  { id: 'gym', label: 'Gym', icon: 'bi-heart-pulse-fill' },
+  { id: 'religious', label: 'Religious\nSpace', icon: 'bi-brightness-high-fill' },
+  { id: 'bar', label: 'Bar', icon: 'bi-cup-straw' },
+  { id: 'park', label: 'Park', icon: 'bi-tree-fill' },
+  { id: 'museum', label: 'Museum', icon: 'bi-bank' }
 ];
 
 // New reasons data
@@ -38,7 +38,6 @@ let selected = [];
 let votes = {};
 let totalVotes = 0;
 let showingResults = false;
-let isTransitioning = false; // ADD THIS
 
 
 // DOM elements
@@ -272,10 +271,10 @@ shapeItem.addEventListener('animationend', function() {
     
     const shapeContent = document.createElement('div');
     shapeContent.className = 'shape-content';
-    shapeContent.innerHTML = `
-      <div class="icon">${location.icon}</div>
-      <div class="label">${location.label}</div>
-    `;
+shapeContent.innerHTML = `
+  <i class="bi ${location.icon} icon"></i>
+  <div class="label">${location.label}</div>
+`;
     
     const resultsContent = document.createElement('div');
     resultsContent.className = 'results-content';
@@ -364,6 +363,12 @@ function showResults() {
   showingResults = true;
   document.body.classList.add('showing-results');
   
+  // Update subtitle text
+  const subtitle = document.querySelector('.question-subtitle');
+  if (subtitle) {
+    subtitle.textContent = 'How others responded';
+  }
+  
   locations.forEach(location => {
     const shapeItem = document.querySelector(`[data-id="${location.id}"]`);
     const size = getShapeSize(location.id);
@@ -380,7 +385,7 @@ function showResults() {
     const percentage = getPercentage(location.id);
     const count = votes[location.id] || 0;
     resultsContent.innerHTML = `
-      <div class="icon" style="font-size: ${iconSize}px; top: ${-iconSize * 0.3}px; left: ${-iconSize * 0.3}px;">${location.icon}</div>
+      <i class="bi ${location.icon} icon" style="font-size: ${iconSize}px; top: ${-iconSize * 0.3}px; left: ${-iconSize * 0.3}px;"></i>
       <div class="label" style="font-size: ${labelSize}px; margin-bottom: ${size * 0.05}px;">${location.label}</div>
       <div class="percentage" style="font-size: ${percentageSize}px; margin-bottom: ${size * 0.02}px;">${percentage}%</div>
       <div class="vote-count" style="font-size: ${voteCountSize}px;">${count} votes</div>
@@ -409,20 +414,10 @@ function getPercentage(locationId) {
 
 function setupEventListeners() {
   nextButton.addEventListener('click', () => {
-    if (isTransitioning) return; // Prevent double-clicks
-    
     if (showingResults) {
-      isTransitioning = true;
       showFinalScreen();
-      setTimeout(() => {
-        isTransitioning = false;
-      }, 1000);
     } else {
-      isTransitioning = true;
       submitVotes();
-      setTimeout(() => {
-        isTransitioning = false;
-      }, 2000); // Longer timeout for vote submission
     }
   });
 }
@@ -450,20 +445,22 @@ function getMiniCircleSize(locationId) {
   const maxSize = 140;
   return minSize + ((voteCount / maxVotes) * (maxSize - minSize));
 }
-
 function showWordIntro() {
   document.getElementById('finalContainer').style.display = 'none';
   const wordIntroContainer = document.getElementById('wordIntroContainer');
   wordIntroContainer.style.display = 'flex';
-  
-  showProgressBar(3000); // Add this
-  
+
+  showProgressBar(3000);
+
   let hasAdvanced = false;
+  
+  // Preload reasons data ASYNCHRONOUSLY during the intro screen
+  loadReasonsVotes(); // This runs in background while user reads the screen
   
   const autoAdvanceTimer = setTimeout(() => {
     if (!hasAdvanced) {
       hasAdvanced = true;
-      hideProgressBar(); // Add this
+      hideProgressBar();
       wordIntroContainer.style.display = 'none';
       showReasonsVoting();
     }
@@ -473,7 +470,7 @@ function showWordIntro() {
     if (!hasAdvanced) {
       hasAdvanced = true;
       clearTimeout(autoAdvanceTimer);
-      hideProgressBar(); // Add this
+      hideProgressBar();
       wordIntroContainer.style.display = 'none';
       showReasonsVoting();
     }
@@ -482,9 +479,10 @@ function showWordIntro() {
   
   wordIntroContainer.addEventListener('click', clickHandler);
 }
+
 async function showReasonsVoting() {
-  await loadReasonsVotes();
-  
+  // Don't load here - it's already loaded during the intro
+  // Just show immediately
   document.getElementById('reasonsContainer').style.display = 'flex';
   renderReasons();
   setupReasonsListeners();
@@ -612,6 +610,12 @@ function showReasonsResults() {
   document.getElementById('reasonsContainer').style.display = 'none';
   document.getElementById('reasonsResultsContainer').style.display = 'flex';
   
+  // Update subtitle text
+  const resultsSubtitle = document.querySelector('.reasons-results-container .reasons-subtitle');
+  if (resultsSubtitle) {
+    resultsSubtitle.textContent = 'How others responded';
+  }
+  
   renderReasonsResults();
   
   const resultsNextButton = document.getElementById('reasonsResultsNextButton');
@@ -622,17 +626,22 @@ function showReasonsResults() {
     });
   }
 }
-
 function renderReasonsResults() {
   const resultsGrid = document.getElementById('reasonsResultsGrid');
   resultsGrid.innerHTML = '';
   
+  // Calculate total of ALL reason votes
+  const totalAllReasonVotes = Object.values(reasonsVotes).reduce((sum, v) => sum + v, 0);
+  
   reasons.forEach((reason, index) => {
     const count = reasonsVotes[reason.id] || 0;
-    const percentage = reasonsTotalVotes > 0 
-      ? Math.round((count / reasonsTotalVotes) * 100) 
+    
+    // Change this calculation to use total of all votes, not total respondents
+    const percentage = totalAllReasonVotes > 0 
+      ? Math.round((count / totalAllReasonVotes) * 100) 
       : 0;
-    const widthPercent = reasonsTotalVotes > 0
+      
+    const widthPercent = totalAllReasonVotes > 0
       ? (count / Math.max(...Object.values(reasonsVotes), 1)) * 100
       : 0;
     
