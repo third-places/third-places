@@ -1,3 +1,6 @@
+// Wait for DOM to be ready
+document.addEventListener('DOMContentLoaded', function() {
+
 // Intro screen management
 let currentIntroScreen = 0;
 const totalIntroScreens = 2;
@@ -19,11 +22,24 @@ const locations = [
   { id: 'museum', label: 'Museum', icon: '🏛️' }
 ];
 
+// New reasons data
+const reasons = [
+  { id: 'open', label: "It's open and inviting", color: '#f4b5c5' },
+  { id: 'comfortable', label: "It's comfortable and informal", color: '#f4d77e' },
+  { id: 'convenient', label: "It's convenient", color: '#a8c5e8' },
+  { id: 'unpretentious', label: "It's unpretentious", color: '#f4d3a8' },
+  { id: 'regulars', label: 'There are regulars', color: '#e8e8e8' },
+  { id: 'conversation', label: 'Conversation is the main activity', color: '#d4e8d4' },
+  { id: 'laughter', label: 'Laughter is frequent', color: '#f4c4d0' }
+];
+
 // State
 let selected = [];
 let votes = {};
 let totalVotes = 0;
 let showingResults = false;
+let isTransitioning = false; // ADD THIS
+
 
 // DOM elements
 let shapesGrid;
@@ -31,61 +47,162 @@ let nextButton;
 let buttonText;
 let selectedCount;
 
+// State for reasons voting
+let reasonsSelected = [];
+let reasonsVotes = {};
+let reasonsTotalVotes = 0;
+
+// Progress bar helpers - ADD THESE HERE
+function showProgressBar(duration) {
+  const progressBar = document.getElementById('progressBar');
+  const progressFill = progressBar.querySelector('.progress-bar-fill');
+  
+  progressBar.style.display = 'block';
+  progressFill.style.transition = `transform ${duration}ms linear`;
+  progressFill.style.transform = 'scaleX(1)';
+  
+  // Trigger animation
+  setTimeout(() => {
+    progressFill.style.transform = 'scaleX(0)';
+  }, 10);
+}
+
+function hideProgressBar() {
+  const progressBar = document.getElementById('progressBar');
+  progressBar.style.display = 'none';
+  const progressFill = progressBar.querySelector('.progress-bar-fill');
+  progressFill.style.transition = 'none';
+  progressFill.style.transform = 'scaleX(1)';
+}
+
+// Splash screen animation
+function initSplash() {
+  const splashImages = document.getElementById('splashImages');
+  const splashIcons = document.getElementById('splashIcons');
+  
+const imagePositions = [
+  { top: '5%', left: '5%', width: '400px', height: '300px', delay: '0s' },
+  { top: '15%', right: '8%', width: '350px', height: '280px', delay: '2s' },
+  { top: '60%', left: '10%', width: '450px', height: '320px', delay: '4s' },
+  { top: '65%', right: '15%', width: '380px', height: '290px', delay: '6s' },
+  { top: '35%', left: '2%', width: '320px', height: '250px', delay: '8s' },
+  { top: '40%', right: '3%', width: '420px', height: '310px', delay: '10s' },
+  { top: '10%', left: '15%', width: '370px', height: '280px', delay: '12s' },
+  { top: '55%', right: '10%', width: '400px', height: '300px', delay: '14s' }
+];
+// Array of your image filenames (put your actual image files in the same folder as index.html)
+const imageFiles = ['bell-in-hand-1.jpg', 'bellinhand-2.webp', 'bostoncommons-1.webp', 'bostoncommons.webp', 'bpl-2.jpg', 'bpl-3.jpg', 'bpl.jpg', 'caffenero.webp', 'lynx.jpg', 'mfa-2.jpg', 'mfa.jpg', 'trinitychurch.jpg'];
+
+imagePositions.forEach((pos, index) => {
+  const box = document.createElement('div');
+  box.className = 'splash-image-box';
+  box.style.top = pos.top;
+  if (pos.left) box.style.left = pos.left;
+  if (pos.right) box.style.right = pos.right;
+  box.style.width = pos.width;
+  box.style.height = pos.height;
+  box.style.animationDelay = pos.delay;
+  
+  // Add image inside the box
+  box.style.backgroundImage = `url('${imageFiles[index % imageFiles.length]}')`;
+  box.style.backgroundSize = 'cover';
+  box.style.backgroundPosition = 'center';
+  
+  splashImages.appendChild(box);
+});
+  
+  // Generate random icon circles
+  const iconPositions = [
+    { top: '12%', left: '35%', size: '60px', delay: '1.5s', color: '#f4d3a8' },
+    { top: '25%', right: '25%', size: '80px', delay: '3.5s', color: '#e8b5c5' },
+    { top: '72%', left: '45%', size: '50px', delay: '2.5s', color: '#8aabc4' },
+    { top: '80%', right: '35%', size: '70px', delay: '4.5s', color: '#f4d77e' },
+    { top: '45%', left: '15%', size: '55px', delay: '0.5s', color: '#f0c4d0' }
+  ];
+  
+  iconPositions.forEach(pos => {
+    const circle = document.createElement('div');
+    circle.className = 'splash-icon-circle';
+    circle.style.top = pos.top;
+    if (pos.left) circle.style.left = pos.left;
+    if (pos.right) circle.style.right = pos.right;
+    circle.style.width = pos.size;
+    circle.style.height = pos.size;
+    circle.style.backgroundColor = pos.color;
+    circle.style.animationDelay = pos.delay;
+    splashIcons.appendChild(circle);
+  });
+  
+// Get Started button
+document.getElementById('splashButton').addEventListener('click', () => {
+  document.getElementById('splashContainer').style.display = 'none';
+  document.getElementById('introContainer').style.display = 'flex';
+  initIntro(); // <-- ADD THIS LINE to start intro when button is clicked
+});
+}
+
+// Start splash screen
+initSplash();
+
+// Start intro AND preload data
+// Start intro AND preload data
 // Start intro AND preload data
 async function initIntro() {
   const introContainer = document.getElementById('introContainer');
   
-  // Preload data during intro screens
-  await loadVotes();
-  dataPreloaded = true;
+  // Force reflow to restart the animation
+  const firstScreen = document.querySelector('.intro-screen[data-screen="0"]');
+  firstScreen.classList.remove('active');
   
-  // Auto-advance every 3 seconds
-  function autoAdvance() {
-    introAutoAdvanceTimer = setTimeout(() => {
-      nextIntroScreen();
-    }, 3000);
-  }
+  // Use setTimeout to trigger animation after display
+  setTimeout(() => {
+    firstScreen.classList.add('active');
+  }, 50);
   
-  // Click to advance
+  // Show progress bar IMMEDIATELY before any async operations
+  showProgressBar(3000);
+  
+  // Start the timer immediately (don't wait for loadVotes)
+  introAutoAdvanceTimer = setTimeout(() => {
+    nextIntroScreen();
+  }, 3000);
+  
+  // Set up click handler
   introContainer.addEventListener('click', () => {
     clearTimeout(introAutoAdvanceTimer);
     nextIntroScreen();
   });
   
-  // Start auto-advance
-  autoAdvance();
+  // Load votes in the background (doesn't block the timer)
+  await loadVotes();
+  dataPreloaded = true;
 }
-
 function nextIntroScreen() {
   const screens = document.querySelectorAll('.intro-screen');
   
-  // Add this safety check
   if (currentIntroScreen >= totalIntroScreens) {
-    return; // Already done, don't proceed
+    return;
   }
   
-  const currentScreen = screens[currentIntroScreen];
+  hideProgressBar(); // Hide when clicking or advancing
   
-  // Exit animation for current screen
+  const currentScreen = screens[currentIntroScreen];
   currentScreen.classList.add('exiting');
   
-  // Wait for exit animation to finish, THEN show next screen
   setTimeout(() => {
     currentScreen.classList.remove('active', 'exiting');
     currentIntroScreen++;
     
     if (currentIntroScreen >= totalIntroScreens) {
-      // Done with intro, show main content
-      clearTimeout(introAutoAdvanceTimer); // Clear any pending timers
+      clearTimeout(introAutoAdvanceTimer);
       document.getElementById('introContainer').classList.add('hidden');
       document.getElementById('mainContainer').style.display = 'flex';
-      init(); // Initialize the voting app
+      init();
     } else {
-      // Show next screen AFTER previous one is gone
       const nextScreen = screens[currentIntroScreen];
       nextScreen.classList.add('active');
       
-      // Auto-advance to next
+      showProgressBar(3000); // Show for next screen
       introAutoAdvanceTimer = setTimeout(() => {
         nextIntroScreen();
       }, 3000);
@@ -93,17 +210,12 @@ function nextIntroScreen() {
   }, 800);
 }
 
-// Start intro on page load
-initIntro();
-
-// Initialize
 async function init() {
   shapesGrid = document.getElementById('shapesGrid');
   nextButton = document.getElementById('nextButton');
   buttonText = document.getElementById('buttonText');
   selectedCount = document.getElementById('selectedCount');
   
-  // Only load if we haven't preloaded
   if (!dataPreloaded) {
     await loadVotes();
   }
@@ -112,7 +224,6 @@ async function init() {
   setupEventListeners();
 }
 
-// Load votes from JSON Bin
 async function loadVotes() {
   try {
     const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
@@ -123,9 +234,8 @@ async function loadVotes() {
       const data = await response.json();
       votes = data.record.votes || {};
       totalVotes = data.record.total || 0;
-      console.log('Loaded votes:', votes, 'Total:', totalVotes); // Debug log
+      console.log('Loaded votes:', votes, 'Total:', totalVotes);
     } else {
-      console.log('Failed to load, initializing empty');
       initializeVotes();
     }
   } catch (error) {
@@ -134,7 +244,6 @@ async function loadVotes() {
   }
 }
 
-// Initialize empty votes
 function initializeVotes() {
   votes = {};
   locations.forEach(loc => {
@@ -143,18 +252,24 @@ function initializeVotes() {
   totalVotes = 0;
 }
 
-// Render shapes
 function renderShapes() {
   shapesGrid.innerHTML = '';
   
-  locations.forEach(location => {
+  locations.forEach((location, index) => {
     const shapeItem = document.createElement('div');
     shapeItem.className = 'shape-item';
     shapeItem.dataset.id = location.id;
     shapeItem.style.width = '160px';
     shapeItem.style.height = '160px';
+    shapeItem.style.opacity = '0'; // Start invisible
+    shapeItem.style.animationDelay = `${0.3 + (index * 0.1)}s`; // Set delay directly
     
-    // Input view
+// Remove animation after it completes so selection states work
+shapeItem.addEventListener('animationend', function() {
+  this.style.animation = 'none';
+  this.style.opacity = ''; // Remove inline style so CSS can control it
+});
+    
     const shapeContent = document.createElement('div');
     shapeContent.className = 'shape-content';
     shapeContent.innerHTML = `
@@ -162,7 +277,6 @@ function renderShapes() {
       <div class="label">${location.label}</div>
     `;
     
-    // Results view
     const resultsContent = document.createElement('div');
     resultsContent.className = 'results-content';
     const percentage = getPercentage(location.id);
@@ -174,14 +288,12 @@ function renderShapes() {
     
     shapeItem.appendChild(shapeContent);
     shapeItem.appendChild(resultsContent);
-    
     shapeItem.addEventListener('click', () => toggleSelection(location.id));
     
     shapesGrid.appendChild(shapeItem);
   });
 }
 
-// Toggle selection
 function toggleSelection(id) {
   if (showingResults) return;
   
@@ -198,7 +310,6 @@ function toggleSelection(id) {
   updateSelectedCount();
 }
 
-// Update selected count
 function updateSelectedCount() {
   if (selected.length > 0) {
     selectedCount.textContent = `${selected.length} selected`;
@@ -207,9 +318,6 @@ function updateSelectedCount() {
   }
 }
 
-// Submit votes
-// Submit votes
-// Submit votes
 async function submitVotes() {
   if (selected.length > 0) {
     const newVotes = { ...votes };
@@ -218,37 +326,40 @@ async function submitVotes() {
     });
     const newTotal = totalVotes + 1;
     
-    // Update local state immediately for instant feedback
     votes = newVotes;
     totalVotes = newTotal;
     
-    // Show results right away
     showResults();
     
-    // Save to JSON Bin in the background (don't wait for it)
-    fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Master-Key': API_KEY
-      },
-      body: JSON.stringify({ votes: newVotes, total: newTotal })
-    }).then(response => {
-      if (response.ok) {
-        console.log('Saved votes successfully');
-      } else {
-        console.error('Error saving votes');
-      }
-    }).catch(error => {
+    try {
+      const getCurrentData = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+        headers: { 'X-Master-Key': API_KEY }
+      });
+      
+      const currentData = getCurrentData.ok ? await getCurrentData.json() : { record: {} };
+      
+      await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Master-Key': API_KEY
+        },
+        body: JSON.stringify({
+          ...currentData.record,
+          votes: newVotes,
+          total: newTotal
+        })
+      });
+      
+      console.log('Saved votes successfully');
+    } catch (error) {
       console.error('Error saving votes:', error);
-    });
+    }
   } else {
-    // No selection, just show results
     showResults();
   }
 }
 
-// Show results
 function showResults() {
   showingResults = true;
   document.body.classList.add('showing-results');
@@ -279,31 +390,9 @@ function showResults() {
     resultsContent.style.height = '100%';
   });
   
-  // Update button text for results screen
   buttonText.textContent = 'Next';
 }
 
-// Reset and go back
-function reset() {
-  showingResults = false;
-  document.body.classList.remove('showing-results');
-  selected = [];
-  
-  document.querySelectorAll('.shape-item').forEach(item => {
-    item.style.width = '160px';
-    item.style.height = '160px';
-    item.classList.remove('selected');
-  });
-  
-  buttonText.textContent = 'Next';
-  selectedCount.textContent = '';
-  
-  loadVotes().then(() => {
-    renderShapes();
-  });
-}
-
-// Calculate shape size based on votes
 function getShapeSize(locationId) {
   const voteCount = votes[locationId] || 0;
   const maxVotes = Math.max(...Object.values(votes), 1);
@@ -312,89 +401,48 @@ function getShapeSize(locationId) {
   return minSize + ((voteCount / maxVotes) * (maxSize - minSize));
 }
 
-// Calculate percentage
 function getPercentage(locationId) {
   const totalAllVotes = Object.values(votes).reduce((sum, v) => sum + v, 0);
   if (totalAllVotes === 0) return 0;
   return Math.round(((votes[locationId] || 0) / totalAllVotes) * 100);
 }
 
-// Setup event listeners
 function setupEventListeners() {
   nextButton.addEventListener('click', () => {
+    if (isTransitioning) return; // Prevent double-clicks
+    
     if (showingResults) {
-      // Go to final screen instead of reset
+      isTransitioning = true;
       showFinalScreen();
+      setTimeout(() => {
+        isTransitioning = false;
+      }, 1000);
     } else {
+      isTransitioning = true;
       submitVotes();
+      setTimeout(() => {
+        isTransitioning = false;
+      }, 2000); // Longer timeout for vote submission
     }
   });
 }
 
-// Show final screen
 function showFinalScreen() {
-  // Hide results
   document.getElementById('mainContainer').style.display = 'none';
+  document.getElementById('finalContainer').style.display = 'block';
   
-  // Show final screen
-  const finalContainer = document.getElementById('finalContainer');
-  finalContainer.style.display = 'flex';
   
-  // Render mini circles
-  renderMiniCircles();
-  
-  // Setup final next button
-  document.getElementById('finalNextButton').addEventListener('click', () => {
-    // Reset everything and go back to intro
-    location.reload();
-  });
+  const finalNextButton = document.getElementById('finalNextButton');
+  if (finalNextButton && !finalNextButton.hasAttribute('data-listener')) {
+    finalNextButton.setAttribute('data-listener', 'true');
+    finalNextButton.addEventListener('click', () => {
+      showWordIntro();
+    });
+  }
 }
 
-// Render mini circles with results
-function renderMiniCircles() {
-  const miniGrid = document.getElementById('miniShapesGrid');
-  miniGrid.innerHTML = '';
-  
-  locations.forEach((location, index) => {
-    const size = getMiniCircleSize(location.id);
-    const percentage = getPercentage(location.id);
-    const count = votes[location.id] || 0;
-    const iconSize = size * 0.25;
-    
-    const miniShape = document.createElement('div');
-    miniShape.className = 'mini-shape-item';
-    miniShape.dataset.id = location.id;
-    miniShape.style.width = size + 'px';
-    miniShape.style.height = size + 'px';
-    miniShape.style.animationDelay = (index * 0.1) + 's';
-    
-    // Get color from your existing color scheme
-    const colorMap = {
-      'library': '#e8b5c5',
-      'cafe': '#f4d77e',
-      'gym': '#8aabc4',
-      'religious': '#f4d3a8',
-      'bar': '#8aabc4',
-      'park': '#f4d3a8',
-      'museum': '#e8b5c5'
-    };
-    
-    miniShape.style.backgroundColor = colorMap[location.id];
-    
-    miniShape.innerHTML = `
-      <div class="mini-icon" style="font-size: ${iconSize}px;">${location.icon}</div>
-      <div class="mini-content">
-        <div class="mini-label">${location.label}</div>
-        <div class="mini-percentage">${percentage}%</div>
-        <div class="mini-vote-count">${count} votes</div>
-      </div>
-    `;
-    
-    miniGrid.appendChild(miniShape);
-  });
-}
 
-// Calculate mini circle size (smaller scale)
+
 function getMiniCircleSize(locationId) {
   const voteCount = votes[locationId] || 0;
   const maxVotes = Math.max(...Object.values(votes), 1);
@@ -403,11 +451,240 @@ function getMiniCircleSize(locationId) {
   return minSize + ((voteCount / maxVotes) * (maxSize - minSize));
 }
 
-// Calculate mini circle size (smaller scale)
-function getMiniCircleSize(locationId) {
-  const voteCount = votes[locationId] || 0;
-  const maxVotes = Math.max(...Object.values(votes), 1);
-  const minSize = 60;
-  const maxSize = 120;
-  return minSize + ((voteCount / maxVotes) * (maxSize - minSize));
+function showWordIntro() {
+  document.getElementById('finalContainer').style.display = 'none';
+  const wordIntroContainer = document.getElementById('wordIntroContainer');
+  wordIntroContainer.style.display = 'flex';
+  
+  showProgressBar(3000); // Add this
+  
+  let hasAdvanced = false;
+  
+  const autoAdvanceTimer = setTimeout(() => {
+    if (!hasAdvanced) {
+      hasAdvanced = true;
+      hideProgressBar(); // Add this
+      wordIntroContainer.style.display = 'none';
+      showReasonsVoting();
+    }
+  }, 3000);
+  
+  const clickHandler = () => {
+    if (!hasAdvanced) {
+      hasAdvanced = true;
+      clearTimeout(autoAdvanceTimer);
+      hideProgressBar(); // Add this
+      wordIntroContainer.style.display = 'none';
+      showReasonsVoting();
+    }
+    wordIntroContainer.removeEventListener('click', clickHandler);
+  };
+  
+  wordIntroContainer.addEventListener('click', clickHandler);
 }
+async function showReasonsVoting() {
+  await loadReasonsVotes();
+  
+  document.getElementById('reasonsContainer').style.display = 'flex';
+  renderReasons();
+  setupReasonsListeners();
+}
+
+async function loadReasonsVotes() {
+  try {
+    const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+      headers: { 'X-Master-Key': API_KEY }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      reasonsVotes = data.record.reasonsVotes || {};
+      reasonsTotalVotes = data.record.reasonsTotal || 0;
+      console.log('Loaded reasons votes:', reasonsVotes);
+    } else {
+      initializeReasonsVotes();
+    }
+  } catch (error) {
+    console.error('Error loading reasons votes:', error);
+    initializeReasonsVotes();
+  }
+}
+
+function initializeReasonsVotes() {
+  reasonsVotes = {};
+  reasons.forEach(reason => {
+    reasonsVotes[reason.id] = 0;
+  });
+  reasonsTotalVotes = 0;
+}
+
+function renderReasons() {
+  const reasonsGrid = document.getElementById('reasonsGrid');
+  reasonsGrid.innerHTML = '';
+  
+  reasons.forEach((reason, index) => {
+    const pill = document.createElement('div');
+    pill.className = 'reason-pill';
+    pill.dataset.id = reason.id;
+    pill.style.backgroundColor = reason.color;
+    pill.textContent = reason.label;
+    pill.style.animationDelay = (index * 0.08) + 's';
+    
+    pill.addEventListener('click', () => toggleReason(reason.id));
+    
+    reasonsGrid.appendChild(pill);
+    
+    setTimeout(() => {
+      pill.classList.add('animate-in');
+    }, 10);
+  });
+}
+
+function toggleReason(id) {
+  const pill = document.querySelector(`.reason-pill[data-id="${id}"]`);
+  
+  if (reasonsSelected.includes(id)) {
+    reasonsSelected = reasonsSelected.filter(r => r !== id);
+    pill.classList.remove('selected');
+  } else {
+    if (reasonsSelected.length < 3) {
+      reasonsSelected.push(id);
+      pill.classList.add('selected');
+    }
+  }
+  
+  updateReasonsCount();
+}
+
+function updateReasonsCount() {
+  const count = document.getElementById('reasonsSelectedCount');
+  count.textContent = reasonsSelected.length > 0 ? `${reasonsSelected.length} selected` : '';
+}
+
+function setupReasonsListeners() {
+  const nextButton = document.getElementById('reasonsNextButton');
+  nextButton.addEventListener('click', submitReasons);
+}
+
+async function submitReasons() {
+  if (reasonsSelected.length > 0) {
+    const newVotes = { ...reasonsVotes };
+    reasonsSelected.forEach(id => {
+      newVotes[id] = (newVotes[id] || 0) + 1;
+    });
+    const newTotal = reasonsTotalVotes + 1;
+    
+    reasonsVotes = newVotes;
+    reasonsTotalVotes = newTotal;
+    
+    showReasonsResults();
+    
+    try {
+      const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+        headers: { 'X-Master-Key': API_KEY }
+      });
+      
+      const currentData = response.ok ? await response.json() : {};
+      
+      await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Master-Key': API_KEY
+        },
+        body: JSON.stringify({
+          ...currentData.record,
+          reasonsVotes: newVotes,
+          reasonsTotal: newTotal
+        })
+      });
+      
+      console.log('Saved reasons votes');
+    } catch (error) {
+      console.error('Error saving reasons:', error);
+    }
+  } else {
+    showReasonsResults();
+  }
+}
+
+function showReasonsResults() {
+  document.getElementById('reasonsContainer').style.display = 'none';
+  document.getElementById('reasonsResultsContainer').style.display = 'flex';
+  
+  renderReasonsResults();
+  
+  const resultsNextButton = document.getElementById('reasonsResultsNextButton');
+  if (!resultsNextButton.hasAttribute('data-listener')) {
+    resultsNextButton.setAttribute('data-listener', 'true');
+    resultsNextButton.addEventListener('click', () => {
+      showQuoteScreen();
+    });
+  }
+}
+
+function renderReasonsResults() {
+  const resultsGrid = document.getElementById('reasonsResultsGrid');
+  resultsGrid.innerHTML = '';
+  
+  reasons.forEach((reason, index) => {
+    const count = reasonsVotes[reason.id] || 0;
+    const percentage = reasonsTotalVotes > 0 
+      ? Math.round((count / reasonsTotalVotes) * 100) 
+      : 0;
+    const widthPercent = reasonsTotalVotes > 0
+      ? (count / Math.max(...Object.values(reasonsVotes), 1)) * 100
+      : 0;
+    
+    const resultPill = document.createElement('div');
+    resultPill.className = 'result-pill';
+    resultPill.innerHTML = `
+      <div class="result-pill-fill" style="width: 0%; background-color: ${reason.color}; transition: width 1.5s ease-out ${index * 0.1}s;"></div>
+      <span class="result-pill-label">${reason.label}</span>
+      <span class="result-pill-percentage">${percentage}%</span>
+    `;
+    
+    resultsGrid.appendChild(resultPill);
+    
+    setTimeout(() => {
+      const fillElement = resultPill.querySelector('.result-pill-fill');
+      fillElement.style.width = widthPercent + '%';
+    }, 50);
+  });
+}
+
+function showQuoteScreen() {
+  document.getElementById('reasonsResultsContainer').style.display = 'none';
+  document.getElementById('quoteContainer').style.display = 'block';
+  
+  const quoteNextButton = document.getElementById('quoteNextButton');
+  if (quoteNextButton && !quoteNextButton.hasAttribute('data-listener')) {
+    quoteNextButton.setAttribute('data-listener', 'true');
+    quoteNextButton.addEventListener('click', () => {
+      showCTAScreen();
+    });
+  }
+}
+
+function showCTAScreen() {
+  document.getElementById('quoteContainer').style.display = 'none';
+  const ctaContainer = document.getElementById('ctaContainer');
+  
+  if (ctaContainer) {
+    ctaContainer.style.display = 'block';
+    
+    const resetButton = document.getElementById('resetButton');
+    if (resetButton && !resetButton.hasAttribute('data-listener')) {
+      resetButton.setAttribute('data-listener', 'true');
+      resetButton.addEventListener('click', () => {
+        location.reload();
+      });
+    }
+  } else {
+    console.error('CTA container not found!');
+  }
+}
+
+}); // End DOMContentLoaded
+
+
