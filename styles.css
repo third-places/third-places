@@ -193,9 +193,6 @@ body.showing-results .shape-item {
   transition: all 1.5s ease-out; /* Slower growth animation */
 }
 
-body.showing-results .question-title {
-  /* Update title for results view if needed */
-}
 
 /* Button styles */
 .next-button {
